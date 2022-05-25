@@ -16,6 +16,7 @@ contract AaveSearcher {
     // IPool pool = LendingPool(provider.getLendingPool());
 
     IV3SwapRouter public immutable swapRouter;
+    address public immutable swapRouterAddr;
 
     address public constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
@@ -25,6 +26,7 @@ contract AaveSearcher {
     uint24 public constant poolFee = 3000;
 
     constructor(address _swapRouterAddr) {
+        swapRouterAddr = _swapRouterAddr;
         swapRouter = IV3SwapRouter(_swapRouterAddr);
         console.log("Deploying an AaveSearcher with Swap Router Addr:", _swapRouterAddr);
     }
@@ -137,7 +139,9 @@ contract AaveSearcher {
 
     // }
 
-
+    function hi() external returns (uint256 amountOut) {
+        return 1;
+    }
     /// @notice swapExactInputSingle swaps a fixed amount of DAI for a maximum possible amount of WETH9
     /// using the DAI/WETH9 0.3% pool by calling `exactInputSingle` in the swap router.
     /// @dev The calling address must approve this contract to spend at least `amountIn` worth of its DAI for this function to succeed.
@@ -148,11 +152,12 @@ contract AaveSearcher {
         //msg.sender must approve this contract
 
         //Transfer the specified amount of DAI to this contract.
+        //tokenIn.approve(swapRouterAddr, amountIn * 2);
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
 
         // Approve the router to spend DAI.
         TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
-        console.log("approvals okay");
+        // console.log("approvals okay");
 
         // Naively set amountOutMinimum to 0. In production, use an oracle or other data source to choose a safer value for amountOutMinimum.
         // We also set the sqrtPriceLimitx96 to be 0 to ensure we swap our exact input amount.
@@ -168,11 +173,11 @@ contract AaveSearcher {
                 sqrtPriceLimitX96: 0
             });
 
-        console.log("params okay");
+        // console.log("params okay");
 
         // The call to `exactInputSingle` executes the swap.
         amountOut = swapRouter.exactInputSingle(params);
-        console.log("yea idk if okay");
+        // console.log("yea idk if okay");
     
     }
 

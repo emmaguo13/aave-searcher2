@@ -59,7 +59,9 @@ module.exports = {
     },
     goerli: {
       url: secret.goerli,
-      accounts: [secret.key]
+      accounts: [secret.key],
+      gas: 2100000,
+      gasPrice: 8000000000
     }
   }
 }
