@@ -25,6 +25,7 @@ async function main() {
     const swapRouter02 = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45";
     const aaveSearcher = await AaveSearcher.deploy(swapRouter02);
     await aaveSearcher.deployed();
+    console.log(aaveSearcher.address)
 
     // console.log("Aave Searcher deployed to:", aaveSearcher.address);
     //const aaveSearcher = await hre.ethers.getContractAt("AaveSearcher", "0x631DF5EaCFAa0bceC11D27c082c0fFb3e65B1366");
@@ -265,7 +266,7 @@ async function main() {
 
     const wethTokenContract = await hre.ethers.getContractAt(erc20ABI, goerliWETH)
     //console.log(wethTokenContract)
-    const approveData = await wethTokenContract.approve(aaveSearcher.address, 20000000000)
+    const approveData = await wethTokenContract.approve(aaveSearcher.address, 200000000000000)
     console.log(approveData)
 
     sleep(30000);
@@ -273,7 +274,7 @@ async function main() {
     //const check = await aaveSearcher.hi()
     //console.log(check)
 
-    const res = await aaveSearcher.swapExactInputSingle(1, 0, goerliWETH, goerliUSDC, 3000);
+    const res = await aaveSearcher.swapExactInputSingle(100000000000000, 0, goerliWETH, goerliUSDC, 3000);
     console.log(res)
 }
 
