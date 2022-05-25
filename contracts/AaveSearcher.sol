@@ -2,13 +2,17 @@
 pragma solidity 0.8.10;
 
 
+import '@aave/core-v3/contracts/flashloan/base/FlashLoanSimpleReceiverBase.sol';
+import '@aave/core-v3/contracts/interfaces/IPool.sol';
+import '@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol';
+import '@openzeppelin/contracts/interfaces/IERC20.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 import "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import "hardhat/console.sol";
 
-//contract AaveSearcher is FlashLoanSimpleReceiverBase {
-contract AaveSearcher {
+contract AaveSearcher is FlashLoanSimpleReceiverBase {
+//contract AaveSearcher {
 
     // i can get rid of this stuff
 
@@ -18,22 +22,24 @@ contract AaveSearcher {
     IV3SwapRouter public immutable swapRouter;
     address public immutable swapRouterAddr;
 
-    constructor(address _swapRouterAddr) {
+    constructor(IPoolAddressesProvider _poolProvider, address _swapRouterAddr) FlashLoanSimpleReceiverBase(_poolProvider) public {
         swapRouterAddr = _swapRouterAddr;
         swapRouter = IV3SwapRouter(_swapRouterAddr);
         console.log("Deploying an AaveSearcher with Swap Router Addr:", _swapRouterAddr);
     }
 
-    // function liquidateLoan(
-    //     address collateral,
-    //     address asset,
-    //     address userToLiq,
-    //     uint256 amount
-    // ) {
+    function liquidateLoan(
+        address collateral,
+        address asset,
+        address userToLiq,
+        uint256 amount
+    ) external {
+        IERC20(asset).approve(address(POOL), amount);
+        POOL.liquidationCall(collateral, asset, userToLiq, amount, false);
 
-    //     liquidateLoan(collateral, asset, toLiq, amount);
+        //function liquidationCall(address _collateral, address _reserve, address _user, uint256 _purchaseAmount, bool _receiveaToken)
 
-    // }
+    }
 
     // function execFlashLoan(
     //     address _asset,
@@ -55,56 +61,56 @@ contract AaveSearcher {
     //     POOL.flashLoanSimple(receiverAddress, asset, amount, params, 0);
     // }
 
-    // /* 
-    //     Called after contract receives flash loaned amont 
-    // */
-    // function executeOperation(
-    //     address calldata asset,
-    //     uint256 calldata amount,
-    //     uint256 calldata premium,
-    //     address initiator,
-    //     bytes calldata params
-    // )
-    //     external
-    //     override
-    //     returns (bool)
-    // {
-    //     // TODO: 1. where do we get premium, what is premium? percentage or number according to loan?
-    //     // still dk where we actually pass in premium
-    //     // Answer: premium is actuall the FEE of the FLASHLOANED asset, so we have to pay this back too lamooam
+    /* 
+        Called after contract receives flash loaned amont 
+    */
+    function executeOperation(
+        address asset,
+        uint256 amount,
+        uint256 premium,
+        address initiator,
+        bytes memory params
+    )
+        external
+        override
+        returns (bool)
+    {
+        // TODO: 1. where do we get premium, what is premium? percentage or number according to loan?
+        // still dk where we actually pass in premium
+        // Answer: premium is actuall the FEE of the FLASHLOANED asset, so we have to pay this back too lamooam
 
-    //     (address collateral, address toLiq, uint256 amtOutMin, uint24 poolFee) = abi.decode(params, (address, address, uint256, uint24));
+        // (address collateral, address toLiq, uint256 amtOutMin, uint24 poolFee) = abi.decode(params, (address, address, uint256, uint24));
 
-    //     /* Do liquidation for the loan */
-    //     // TODO: make sure this function is correct somewhere
-    //     liquidateLoan(collateral, asset, toLiq, amount);
+        // /* Do liquidation for the loan */
+        // // TODO: make sure this function is correct somewhere
+        // liquidateLoan(collateral, asset, toLiq, amount);
 
-    //     /* Swap profit from collateral back to the token used for flashloan */
-    //     // You're repaying in the borrowed asset ? YES, you're repaying half of the value of the borrowed asset
-    //     // TODO: make sure you know how to do the swap yourself. and understand amtOutMin, is this standardized for Aave?
-    //     //swapToLoanAsset(collateral,asset,amtOutMin, path);
-    //     swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
+        // /* Swap profit from collateral back to the token used for flashloan */
+        // // You're repaying in the borrowed asset ? YES, you're repaying half of the value of the borrowed asset
+        // // TODO: make sure you know how to do the swap yourself. and understand amtOutMin, is this standardized for Aave?
+        // //swapToLoanAsset(collateral,asset,amtOutMin, path);
+        // swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
 
-    //      /* Calculate profitability of liq, considering gas, premium of flash loan */
-    //     //bool shouldLiq = shouldLiquidate(IERC20(asset).balanceOf(address(this)), amount, premium, prevBal);
+        //  /* Calculate profitability of liq, considering gas, premium of flash loan */
+        // //bool shouldLiq = shouldLiquidate(IERC20(asset).balanceOf(address(this)), amount, premium, prevBal);
 
-    //     uint256 bonus = userCollateralBal - amount - premium;
-    //     // TODO: not sure if the false is correct?
-    //     if (bonus <= 0) {
-    //         return false;
-    //     }
+        // uint256 bonus = userCollateralBal - amount - premium;
+        // // TODO: not sure if the false is correct?
+        // if (bonus <= 0) {
+        //     return false;
+        // }
 
-    //     /* Pay profit to user */
-    //     //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
-    //     IERC20(collateral).transfer(owner(), bonus);
+        // /* Pay profit to user */
+        // //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
+        // IERC20(collateral).transfer(owner(), bonus);
 
-    //     /* Approve pool for flash loan, make sure we have enough to pay back amount borrowed + premium, or else we revert */
-    //     // TODO: check erc20 stuff
-    //     uint256 owe = amount.add(premium);
-    //     IERC20(asset).approve(address(POOL), owe);
+        // /* Approve pool for flash loan, make sure we have enough to pay back amount borrowed + premium, or else we revert */
+        // // TODO: check erc20 stuff
+        // uint256 owe = amount.add(premium);
+        // IERC20(asset).approve(address(POOL), owe);
 
-    //     return true;
-    // }
+        return true;
+    }
 
     // function shouldLiquidate(
     //     uint256 userCollateralBal,
@@ -135,6 +141,7 @@ contract AaveSearcher {
     function hi() external returns (uint256 amountOut) {
         return 1;
     }
+
     /// @notice swapExactInputSingle swaps a fixed amount of DAI for a maximum possible amount of WETH9
     /// using the DAI/WETH9 0.3% pool by calling `exactInputSingle` in the swap router.
     /// @dev The calling address must approve this contract to spend at least `amountIn` worth of its DAI for this function to succeed.

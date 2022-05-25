@@ -30,16 +30,16 @@ async function main() {
     // console.log("Aave Searcher deployed to:", aaveSearcher.address);
     //const aaveSearcher = await hre.ethers.getContractAt("AaveSearcher", "0x631DF5EaCFAa0bceC11D27c082c0fFb3e65B1366");
     // SWAP WETH TO DAI
-    //const rinkWETH = ethers.utils.getAddress("0xc778417E063141139Fce010982780140Aa0cD5Ab");
-    //const rinkDAI = ethers.utils.getAddress("0x95b58a6Bff3D14B7DB2f5cb5F0Ad413DC2940658");
+    const rinkWETH = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
+    const rinkUSDC = "0x4DBCdF9B62e891a7cec5A2568C3F4FAF9E8Abe2b";
     //console.log(aaveSearcher)
 
     //fetch("https://api.etherscan.io/api?module=contract&action=getabi&address="+ aaveSearcher.address + "&apikey=RNNCQEBWY52XXJ9QAMP7JBT7CG98R5ZXAM").then(data => {
     //  console.log(data.result)
     //})
 
-    const goerliWETH = "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6";
-    const goerliUSDC = "0xD87Ba7A50B2E7E660f678A895E4B72E7CB4CCd9C";
+    // const goerliWETH = "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6";
+    // const goerliUSDC = "0xD87Ba7A50B2E7E660f678A895E4B72E7CB4CCd9C";
 
     const erc20ABI = [
       {
@@ -264,7 +264,7 @@ async function main() {
       }
   ]
 
-    const wethTokenContract = await hre.ethers.getContractAt(erc20ABI, goerliWETH)
+    const wethTokenContract = await hre.ethers.getContractAt(erc20ABI, rinkWETH)
     //console.log(wethTokenContract)
     const approveData = await wethTokenContract.approve(aaveSearcher.address, 200000000000000)
     console.log(approveData)
@@ -274,7 +274,7 @@ async function main() {
     //const check = await aaveSearcher.hi()
     //console.log(check)
 
-    const res = await aaveSearcher.swapExactInputSingle(100000000000000, 0, goerliWETH, goerliUSDC, 3000);
+    const res = await aaveSearcher.swapExactInputSingle(100000000000000, 0, rinkWETH, rinkUSDC, 3000);
     console.log(res)
 }
 
