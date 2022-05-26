@@ -41,25 +41,24 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
 
     }
 
-    // function execFlashLoan(
-    //     address _asset,
-    //     uint256 _amount,
-    //     address _collateral,
-    //     address _liqedUser,
-    //     uint256 _amtOutMin, // for swap
-    //     uint24 _poolFee // for swap
-    // ) {
-    //     /* Call pool contract, req flash loan of certain amount, certain reserve */
-    //     // use simple flash loan for gas efficiency
-    //     // TODO: ACTUALLY I SHOULD NOT USE FLASH LOAN SIMPLE
-    //     address receiverAddress = address(this);
-    //     address asset = _asset;
-    //     // the parameters 
-    //     bytes memory params = abi.encode(_collateral, _liqedUser, _amtOutMin, _poolFee);
-    //     uint256 amount = _amount;
-    //     // referralCode, last arg, is a uint16
-    //     POOL.flashLoanSimple(receiverAddress, asset, amount, params, 0);
-    // }
+    function execFlashLoan(
+        address _asset,
+        uint256 _amount,
+        address _collateral,
+        address _liqedUser,
+        uint256 _amtOutMin, // for swap
+        uint24 _poolFee // for swap
+    ) external {
+        /* Call pool contract, req flash loan of certain amount, certain reserve */
+        // use simple flash loan for gas efficiency
+        address receiverAddress = address(this);
+        address asset = _asset;
+        // the parameters 
+        bytes memory params = abi.encode(_collateral, _liqedUser, _amtOutMin, _poolFee);
+        uint256 amount = _amount;
+        // referralCode, last arg, is a uint16
+        POOL.flashLoanSimple(receiverAddress, asset, amount, params, 0);
+    }
 
     /* 
         Called after contract receives flash loaned amont 
@@ -81,33 +80,33 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
 
         // (address collateral, address toLiq, uint256 amtOutMin, uint24 poolFee) = abi.decode(params, (address, address, uint256, uint24));
 
-        // /* Do liquidation for the loan */
-        // // TODO: make sure this function is correct somewhere
-        // liquidateLoan(collateral, asset, toLiq, amount);
+        /* Do liquidation for the loan */
+        // TODO: make sure this function is correct somewhere
+        liquidateLoan(collateral, asset, toLiq, amount);
 
-        // /* Swap profit from collateral back to the token used for flashloan */
-        // // You're repaying in the borrowed asset ? YES, you're repaying half of the value of the borrowed asset
-        // // TODO: make sure you know how to do the swap yourself. and understand amtOutMin, is this standardized for Aave?
-        // //swapToLoanAsset(collateral,asset,amtOutMin, path);
-        // swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
+        /* Swap profit from collateral back to the token used for flashloan */
+        // You're repaying in the borrowed asset ? YES, you're repaying half of the value of the borrowed asset
+        // TODO: make sure you know how to do the swap yourself. and understand amtOutMin, is this standardized for Aave?
+        //swapToLoanAsset(collateral,asset,amtOutMin, path);
+        swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
 
-        //  /* Calculate profitability of liq, considering gas, premium of flash loan */
-        // //bool shouldLiq = shouldLiquidate(IERC20(asset).balanceOf(address(this)), amount, premium, prevBal);
+         /* Calculate profitability of liq, considering gas, premium of flash loan */
+        //bool shouldLiq = shouldLiquidate(IERC20(asset).balanceOf(address(this)), amount, premium, prevBal);
 
-        // uint256 bonus = userCollateralBal - amount - premium;
-        // // TODO: not sure if the false is correct?
-        // if (bonus <= 0) {
-        //     return false;
-        // }
+        uint256 bonus = userCollateralBal - amount - premium;
+        // TODO: not sure if the false is correct?
+        if (bonus <= 0) {
+            return false;
+        }
 
-        // /* Pay profit to user */
-        // //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
-        // IERC20(collateral).transfer(owner(), bonus);
+        /* Pay profit to user */
+        //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
+        IERC20(collateral).transfer(owner(), bonus);
 
-        // /* Approve pool for flash loan, make sure we have enough to pay back amount borrowed + premium, or else we revert */
-        // // TODO: check erc20 stuff
-        // uint256 owe = amount.add(premium);
-        // IERC20(asset).approve(address(POOL), owe);
+        /* Approve pool for flash loan, make sure we have enough to pay back amount borrowed + premium, or else we revert */
+        // TODO: check erc20 stuff
+        uint256 owe = amount.add(premium);
+        IERC20(asset).approve(address(POOL), owe);
 
         return true;
     }

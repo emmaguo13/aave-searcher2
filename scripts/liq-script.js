@@ -2,6 +2,8 @@ const hre = require("hardhat");
 const secret = require("../secret");
 const erc20 = require ("../utils/erc20.json");
 const poolABI = require("../utils/pool.json");
+const oracleABI = require("../utils/oracle.json")
+const helpersABI = require("../utils/helper.json")
 const Web3 = require('web3');
 const { ethers } = require("hardhat");
 const web3 = new Web3(secret.rinkeby);
@@ -13,6 +15,10 @@ function sleep(milliseconds) {
       currentDate = Date.now();
     } while (currentDate - date < milliseconds);
   }
+
+const convertToCurrencyDecimals = async (amount, decimals) => {
+    return hre.ethers.utils.parseUnits(amount, decimals);
+  };
 
 async function main() {
     // Hardhat always runs the compile task when running scripts with its command
@@ -94,27 +100,61 @@ async function main() {
     const userGlobalData = await poolContract.getUserAccountData(borrower);
 
     const oracleAddr = "0xA323726989db5708B19EAd4A494dDe09F3cEcc69"
-    const oracleContract = await hre.ethers.getContractAt(erc20, oracleAddr);
+    const oracleContract = await hre.ethers.getContractAt(oracleABI, oracleAddr);
 
-    const usdcPrice = await oracle.getAssetPrice(usdc.address);
+    const usdcPrice = await oracleContract.getAssetPrice(USDCTokenContract.address);
+    console.log(userGlobalData.availableBorrowsBase)
+    const usdcToBorrow = convertToCurrencyDecimals(userGlobalData.availableBorrowsBase.div(usdcPrice.toString()).mul(ethers.FixedNumber.fromValue('0.9502').toString()).toBigInt(), 6);
 
+    const borrowerBorrow = await poolContract.connect(borrowerSigner).borrow(USDCTokenContract.address, usdcToBorrow, 1, "0", borrower);
+    borrowerBorrow.wait()
+    console.log(borrowerBorrow)
 
-    //borrower borrows
-//     const userGlobalData = await pool.getUserAccountData(borrower.address);
+    // //drops HF below 1
+    // await oracleContract.setAssetPrice(
+    //   USDCTokenContract.address,
+    //   new hre.ethers.BigNumber.from(usdcPrice.toString()).multipliedBy(1.12).toFixed(0)
+    // );
 
-//     const usdcPrice = await oracle.getAssetPrice(usdc.address);
-
-//     const amountUSDCToBorrow = await convertToCurrencyDecimals(
-//       usdc.address,
-//       new BigNumber(userGlobalData.availableBorrowsETH.toString())
-//         .div(usdcPrice.toString())
-//         .multipliedBy(0.9502)
-//         .toFixed(0)
+    //mints usdc to the liquidator
+        /*
+    await USDCTokenContract
+      .connect(liquidatorSigner)
+      .mint(convertToCurrencyDecimals('1000', 6);
+*/
+    //approve protocol to access depositor wallet
+    //await USDCTokenContract.connect(liquidatorSigner).approve(poolAddr, '10000000000000000000000000');
+    // const helpersAddr = "0xBAB2E7afF5acea53a43aEeBa2BA6298D8056DcE5"
+    // const helpersContract = await hre.ethers.getContractAt(helpersABI, helpersAddr);
+//     const userReserveDataBefore = await helpersContract.getUserReserveData(
+//       USDCTokenContract.address,
+//       borrower
 //     );
 
-//     await pool
-//       .connect(borrower.signer)
-//       .borrow(usdc.address, amountUSDCToBorrow, RateMode.Stable, '0', borrower.address);
+//     const usdcReserveDataBefore = await helpersContract.getReserveData(USDCTokenContract.address);
+//     const ethReserveDataBefore = await helpersContract.getReserveData(WETHTokenContract.address);
+
+//     const amountToLiquidate = hre.ethers.BigNumber.from(
+//       userReserveDataBefore.currentStableDebt.toString()
+//     )
+//       .div(2)
+//       .toString();
+        //await aaveSearcher.connect(liquidatorSigner).liquidateLoan(rinkWETH, rinkUSDC, borrower, amountToLiquidate)
+
+
+//     const userReserveDataAfter = await helpersContract.getUserReserveData(
+//       USDCTokenContract.address,
+//       borrower
+//     );
+
+//     const userGlobalDataAfter = await poolContract.getUserAccountData(borrower);
+// --------
+
+//     const usdcReserveDataAfter = await helpersContract.getReserveData(USDCTokenContract.address);
+//     const ethReserveDataAfter = await helpersContract.getReserveData(WETHTokenContract.address);
+
+//     const collateralPrice = await oracleContract.getAssetPrice(WETHTokenContract.address);
+//     const principalPrice = await oracleContract.getAssetPrice(USDCTokenContract.address);
     
 
       // SWAP WETH TO DAI
@@ -185,8 +225,8 @@ async function main() {
 //       usdc.address,
 //       new BigNumber(userGlobalData.availableBorrowsETH.toString())
 //         .div(usdcPrice.toString())
-//         .multipliedBy(0.9502)
-//         .toFixed(0)
+//         .mul(0.9502)
+//         .toBigInt()
 //     );
 
 //     await pool
@@ -231,7 +271,7 @@ async function main() {
 //       borrower.address
 //     );
 
-//     const userGlobalDataAfter = await pool.getUserAccountData(borrower.address);
+//     const userGlobalDataAfter = await poolContract.getUserAccountData(borrower);
 
 //     const usdcReserveDataAfter = await helpersContract.getReserveData(usdc.address);
 //     const ethReserveDataAfter = await helpersContract.getReserveData(weth.address);
