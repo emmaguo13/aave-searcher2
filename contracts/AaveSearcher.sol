@@ -28,6 +28,41 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         console.log("Deploying an AaveSearcher with Swap Router Addr:", _swapRouterAddr);
     }
 
+    /// @notice swapExactInputSingle swaps a fixed amount of DAI for a maximum possible amount of WETH9
+    /// using the DAI/WETH9 0.3% pool by calling `exactInputSingle` in the swap router.
+    /// @dev The calling address must approve this contract to spend at least `amountIn` worth of its DAI for this function to succeed.
+    /// @param amountIn The exact amount of DAI that will be swapped for WETH9.
+    /// @return amountOut The amount of WETH9 received.
+    // swapExactInputSingle(uint256 amountIn, uint256 amountOutMin, address tokenIn, address tokenOut, uint24 poolFee) external returns (uint256 amountOut)
+    function swapExactInputSingle(uint256 amountIn, uint256 amountOutMin, address tokenIn, address tokenOut, uint24 poolFee) external returns (uint256 amountOut) {
+        //msg.sender must approve this contract
+
+        //Transfer the specified amount of DAI to this contract.
+        TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
+
+        // Approve the router to spend DAI.
+        TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
+
+        // Naively set amountOutMinimum to 0. In production, use an oracle or other data source to choose a safer value for amountOutMinimum.
+        // We also set the sqrtPriceLimitx96 to be 0 to ensure we swap our exact input amount.
+        IV3SwapRouter.ExactInputSingleParams memory params =
+            IV3SwapRouter.ExactInputSingleParams({
+                tokenIn: tokenIn,
+                tokenOut: tokenOut,
+                fee: poolFee,
+                recipient: msg.sender,
+                //deadline: block.timestamp + 200,
+                amountIn: amountIn,
+                amountOutMinimum: amountOutMin,
+                sqrtPriceLimitX96: 0
+            });
+
+
+        // The call to `exactInputSingle` executes the swap.
+        amountOut = swapRouter.exactInputSingle(params);
+    
+    }
+
     function liquidateLoan(
         address collateral,
         address asset,
@@ -78,22 +113,22 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         // still dk where we actually pass in premium
         // Answer: premium is actuall the FEE of the FLASHLOANED asset, so we have to pay this back too lamooam
 
-        // (address collateral, address toLiq, uint256 amtOutMin, uint24 poolFee) = abi.decode(params, (address, address, uint256, uint24));
+        (address collateral, address toLiq, uint256 amtOutMin, uint24 poolFee) = abi.decode(params, (address, address, uint256, uint24));
 
         /* Do liquidation for the loan */
         // TODO: make sure this function is correct somewhere
-        liquidateLoan(collateral, asset, toLiq, amount);
+        this.liquidateLoan(collateral, asset, toLiq, amount);
 
         /* Swap profit from collateral back to the token used for flashloan */
         // You're repaying in the borrowed asset ? YES, you're repaying half of the value of the borrowed asset
         // TODO: make sure you know how to do the swap yourself. and understand amtOutMin, is this standardized for Aave?
         //swapToLoanAsset(collateral,asset,amtOutMin, path);
-        swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
+        this.swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
 
          /* Calculate profitability of liq, considering gas, premium of flash loan */
         //bool shouldLiq = shouldLiquidate(IERC20(asset).balanceOf(address(this)), amount, premium, prevBal);
 
-        uint256 bonus = userCollateralBal - amount - premium;
+        uint256 bonus = IERC20(asset).balanceOf(address(this)) - amount - premium;
         // TODO: not sure if the false is correct?
         if (bonus <= 0) {
             return false;
@@ -101,11 +136,12 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
 
         /* Pay profit to user */
         //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
-        IERC20(collateral).transfer(owner(), bonus);
+        // TODO: deal with owner stuff
+        //IERC20(collateral).transfer(owner(), bonus);
 
         /* Approve pool for flash loan, make sure we have enough to pay back amount borrowed + premium, or else we revert */
         // TODO: check erc20 stuff
-        uint256 owe = amount.add(premium);
+        uint256 owe = amount + premium;
         IERC20(asset).approve(address(POOL), owe);
 
         return true;
@@ -140,41 +176,5 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
     function hi() external returns (uint256 amountOut) {
         return 1;
     }
-
-    /// @notice swapExactInputSingle swaps a fixed amount of DAI for a maximum possible amount of WETH9
-    /// using the DAI/WETH9 0.3% pool by calling `exactInputSingle` in the swap router.
-    /// @dev The calling address must approve this contract to spend at least `amountIn` worth of its DAI for this function to succeed.
-    /// @param amountIn The exact amount of DAI that will be swapped for WETH9.
-    /// @return amountOut The amount of WETH9 received.
-    // swapExactInputSingle(uint256 amountIn, uint256 amountOutMin, address tokenIn, address tokenOut, uint24 poolFee) external returns (uint256 amountOut)
-    function swapExactInputSingle(uint256 amountIn, uint256 amountOutMin, address tokenIn, address tokenOut, uint24 poolFee) external returns (uint256 amountOut) {
-        //msg.sender must approve this contract
-
-        //Transfer the specified amount of DAI to this contract.
-        TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
-
-        // Approve the router to spend DAI.
-        TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
-
-        // Naively set amountOutMinimum to 0. In production, use an oracle or other data source to choose a safer value for amountOutMinimum.
-        // We also set the sqrtPriceLimitx96 to be 0 to ensure we swap our exact input amount.
-        IV3SwapRouter.ExactInputSingleParams memory params =
-            IV3SwapRouter.ExactInputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: tokenOut,
-                fee: poolFee,
-                recipient: msg.sender,
-                //deadline: block.timestamp + 200,
-                amountIn: amountIn,
-                amountOutMinimum: amountOutMin,
-                sqrtPriceLimitX96: 0
-            });
-
-
-        // The call to `exactInputSingle` executes the swap.
-        amountOut = swapRouter.exactInputSingle(params);
-    
-    }
-
 
 }

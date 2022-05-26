@@ -77,8 +77,6 @@ async function main() {
     depositorDeposit.wait();
     console.log(depositorDeposit)
 
-    sleep(60000)
-
     //borrower deposits 0.002 WETH
     const WETHTokenContract = await hre.ethers.getContractAt(erc20, rinkWETH);
     const approveData3 = await WETHTokenContract.connect(borrowerSigner).approve("0x87530ED4bd0ee0e79661D65f8Dd37538F693afD5", '10000000000000000000000000');
@@ -104,17 +102,27 @@ async function main() {
 
     const usdcPrice = await oracleContract.getAssetPrice(USDCTokenContract.address);
     console.log(userGlobalData.availableBorrowsBase)
-    const usdcToBorrow = convertToCurrencyDecimals(userGlobalData.availableBorrowsBase.div(usdcPrice.toString()).mul(ethers.FixedNumber.fromValue('0.9502').toString()).toBigInt(), 6);
+    const toMul = userGlobalData.availableBorrowsBase.div(usdcPrice.toString()).toNumber()
+    console.log(toMul)
+    const result = (toMul * 0.9502)
+    const rounded = Math.round(result).toString()
+    console.log(rounded)
+    // ethers.FixedNumber.fromString('0.9502').mulUnsafe(toMul.toNumber().toString())
+    const usdcToBorrow = convertToCurrencyDecimals(rounded, 6);
+    console.log(usdcToBorrow)
 
     const borrowerBorrow = await poolContract.connect(borrowerSigner).borrow(USDCTokenContract.address, usdcToBorrow, 1, "0", borrower);
     borrowerBorrow.wait()
     console.log(borrowerBorrow)
 
-    // //drops HF below 1
-    // await oracleContract.setAssetPrice(
-    //   USDCTokenContract.address,
-    //   new hre.ethers.BigNumber.from(usdcPrice.toString()).multipliedBy(1.12).toFixed(0)
-    // );
+    const toSet = hre.ethers.BigNumber.from(Math.round(usdcPrice.toNumber() * 1.12).toString())
+    console.log(toSet)
+
+    //drops HF below 1
+    await oracleContract.setAssetPrice(
+      USDCTokenContract.address,
+      toSet
+    );
 
     //mints usdc to the liquidator
         /*
