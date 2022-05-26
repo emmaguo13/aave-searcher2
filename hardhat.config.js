@@ -55,7 +55,9 @@ module.exports = {
   networks: {
     rinkeby: {
       url: secret.rinkeby,
-      accounts: [secret.key]
+      accounts: [secret.key],
+      gas: 2100000,
+      gasPrice: 8000000000
     },
     goerli: {
       url: secret.goerli,
