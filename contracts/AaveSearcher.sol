@@ -12,6 +12,7 @@ import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import "hardhat/console.sol";
 
 contract AaveSearcher is FlashLoanSimpleReceiverBase {
+    event Deposit(address indexed _from, bytes32 indexed _id, uint _value);
 //contract AaveSearcher {
 
     // i can get rid of this stuff
@@ -71,9 +72,6 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
     ) external {
         IERC20(asset).approve(address(POOL), amount);
         POOL.liquidationCall(collateral, asset, userToLiq, amount, false);
-
-        //function liquidationCall(address _collateral, address _reserve, address _user, uint256 _purchaseAmount, bool _receiveaToken)
-
     }
 
     function execFlashLoan(
@@ -109,38 +107,30 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         override
         returns (bool)
     {
-        // TODO: 1. where do we get premium, what is premium? percentage or number according to loan?
         // still dk where we actually pass in premium
         // Answer: premium is actuall the FEE of the FLASHLOANED asset, so we have to pay this back too lamooam
 
         (address collateral, address toLiq, uint256 amtOutMin, uint24 poolFee) = abi.decode(params, (address, address, uint256, uint24));
 
         /* Do liquidation for the loan */
-        // TODO: make sure this function is correct somewhere
-        this.liquidateLoan(collateral, asset, toLiq, amount);
+        // this.liquidateLoan(collateral, asset, toLiq, amount);
 
-        /* Swap profit from collateral back to the token used for flashloan */
-        // You're repaying in the borrowed asset ? YES, you're repaying half of the value of the borrowed asset
-        // TODO: make sure you know how to do the swap yourself. and understand amtOutMin, is this standardized for Aave?
-        //swapToLoanAsset(collateral,asset,amtOutMin, path);
-        this.swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
+        // /* Swap profit from collateral back to the token used for flashloan */
+        // this.swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
 
-         /* Calculate profitability of liq, considering gas, premium of flash loan */
-        //bool shouldLiq = shouldLiquidate(IERC20(asset).balanceOf(address(this)), amount, premium, prevBal);
+        //  /* Calculate profitability of liq, considering gas, premium of flash loan */
+        // //bool shouldLiq = shouldLiquidate(IERC20(asset).balanceOf(address(this)), amount, premium, prevBal);
 
-        uint256 bonus = IERC20(asset).balanceOf(address(this)) - amount - premium;
-        // TODO: not sure if the false is correct?
-        if (bonus <= 0) {
-            return false;
-        }
+        // uint256 bonus = IERC20(asset).balanceOf(address(this)) - amount - premium;
+        // if (bonus <= 0) {
+        //     return false;
+        // }
 
-        /* Pay profit to user */
-        //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
-        // TODO: deal with owner stuff
-        //IERC20(collateral).transfer(owner(), bonus);
+        // /* Pay profit to user */
+        // //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
+        // IERC20(collateral).transfer(msg.sender, bonus);
 
         /* Approve pool for flash loan, make sure we have enough to pay back amount borrowed + premium, or else we revert */
-        // TODO: check erc20 stuff
         uint256 owe = amount + premium;
         IERC20(asset).approve(address(POOL), owe);
 
@@ -166,15 +156,5 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
     //     // profit will be collateral bonus - cost of txn (a - b)
 
     // }
-
-    // function swapToEth(
-
-    // ) {
-
-    // }
-
-    function hi() external returns (uint256 amountOut) {
-        return 1;
-    }
 
 }

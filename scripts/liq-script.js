@@ -119,10 +119,41 @@ async function main() {
     console.log(toSet)
 
     //drops HF below 1
-    await oracleContract.setAssetPrice(
+    // await oracleContract.setAssetPrice(
+    //   USDCTokenContract.address,
+    //   toSet
+    // );
+
+    // Mint USDC to liquidator
+    await USDCTokenContract
+      .connect(liquidatorSigner)
+      .mint(liquidator, convertToCurrencyDecimals('1000', 6));
+
+    // Approve protocol to access liquidator wallet 
+   const approveLiquidatorAccess = await USDCTokenContract.connect(liquidatorSigner).approve(poolAddr, '10000000000000000000000000');
+   approveLiquidatorAccess.wait();
+
+   // Set up Helper Contract
+    const helpersAddr = "0xBAB2E7afF5acea53a43aEeBa2BA6298D8056DcE5"
+    const helpersContract = await hre.ethers.getContractAt(helpersABI, helpersAddr);
+
+    // Get reserve data of borrower before liquidation
+    const userReserveDataBefore = await helpersContract.getUserReserveData(
       USDCTokenContract.address,
-      toSet
+      borrower
     );
+    const usdcReserveDataBefore = await helpersContract.getReserveData(USDCTokenContract.address);
+    const ethReserveDataBefore = await helpersContract.getReserveData(WETHTokenContract.address);
+    
+    // Get the amount to liquidate
+    const amountToLiquidate = hre.ethers.BigNumber.from(
+      userReserveDataBefore.currentStableDebt.toString()
+    )
+      .div(2)
+      .toString();
+    
+    const liq = await aaveSearcher.connect(liquidatorSigner).liquidateLoan(rinkWETH, rinkUSDC, borrower, amountToLiquidate)
+    console.log(liq);
 
     //mints usdc to the liquidator
         /*
