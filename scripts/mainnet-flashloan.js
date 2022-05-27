@@ -6,7 +6,7 @@ const oracleABI = require("../utils/oracle.json")
 const helpersABI = require("../utils/helper.json")
 const poolAddressProviderABI = require("../utils/poolAddressProv.json")
 const Web3 = require('web3');
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
 
 const convertToCurrencyDecimals = async (amount, decimals) => {
     return hre.ethers.utils.parseUnits(amount, decimals);
@@ -24,17 +24,61 @@ async function main() {
     const aaveSearcher = await AaveSearcher.deploy(IPoolAddressProvider.address, swapRouter02);
     await aaveSearcher.deployed();
 
-    const provider = ethers.getDefaultProvider(secret.rinkeby);
+    const provider = hre.network.provider;
 
     // Accounts
     const depositor = '0x53607A7DDFb72893579AC2aA18D62d586244a6C2';
-    const depositorSigner = new hre.ethers.Wallet('0x197fd9a571a9f7f7ac3e072743eb8c46aa11daf0c7d542f120db8e7e9cd72d22', provider);
+    await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [depositor],
+      });
+    const depositorSigner = await ethers.getSigner(depositor)
+
     const borrower = '0x1Cf0b26c63817Bfd467630D247A32529091fde49';
-    const borrowerSigner = new hre.ethers.Wallet("0x0662c9d03d341b1d16fb7f0f9fc7e1e6194c4c57ec338c0011f0b875c3279c45", provider);
+    await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [borrower],
+      });
+    const borrowerSigner = await ethers.getSigner(borrower)
+    
     const liquidator = "0x3be0dDA9B3657B63c2cd9e836E41903c97518088";
-    const liquidatorSigner = new hre.ethers.Wallet("0xf872848c823a83e3e74f040cd9a7ee4b9099d863e2b59b2ac3e3ec73fb831ba0", provider);
+    await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [liquidator],
+      });
+    const liquidatorSigner = await ethers.getSigner(liquidator)
+
+    const poolAdmin = '0x77c45699A715A64A7a7796d5CEe884cf617D5254';
+    await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [poolAdmin],
+      });
+    const poolAdminSigner = await ethers.getSigner(poolAdmin)
+
+    // give 5 Eth to all accounts 
+    
+    // const newBalance = ethers.utils.parseEther("5");
+
+    // // this is necessary because hex quantities with leading zeros are not valid at the JSON-RPC layer
+    // const newBalanceHex = newBalance.toHexString().replace("0x0", "0x");
+    
+    // await network.provider.send("hardhat_setBalance", [
+    //     depositor,
+    //     newBalanceHex,
+    //     ]);
+
+    // await network.provider.send("hardhat_setBalance", [
+    //     borrower,
+    //     newBalanceHex,
+    //     ]);
+    
+    // await network.provider.send("hardhat_setBalance", [
+    //     liquidator,
+    //     newBalanceHex,
+    //     ]);
 
     // Tokens
+    // actually polygon mainnet, but too lazy to change lol
     const rinkWETH = "0xd74047010D77c5901df5b0f9ca518aED56C85e8D";
     const rinkUSDC = "0xb18d016cDD2d9439A19f15633005A6b2cd6Aa774";
     const USDCTokenContract = await hre.ethers.getContractAt(erc20, rinkUSDC);
@@ -45,19 +89,19 @@ async function main() {
     const poolContract = await hre.ethers.getContractAt(poolABI, poolAddr)
 
     //approve protocol to access depositor wallet
-    const approveData = await USDCTokenContract.connect(depositorSigner).approve("0x87530ED4bd0ee0e79661D65f8Dd37538F693afD5", '1000000000000000000000000000000000');
+    const actualPoolAddr = "0x87530ED4bd0ee0e79661D65f8Dd37538F693afD5"
+    const approveData = await USDCTokenContract.connect(depositorSigner).approve(actualPoolAddr, '1000000000000000000000000000000000');
     const approveData2 = await USDCTokenContract.connect(depositorSigner).approve(poolAddr, '1000000000000000000000000000000000');
 
     // Mint USDC to depositor
-    const mint = await USDCTokenContract.connect(depositorSigner).mint(depositor, 90000000000);
-    mint.wait();
+    const mint = await USDCTokenContract.connect(depositorSigner).mint(depositor, 900000000);
 
     //Depositor deposits 6000 USDC
     const depositorDeposit = await poolContract.connect(depositorSigner).supply(rinkUSDC, 60000000000, depositor, '0');
     depositorDeposit.wait();
 
-    //borrower deposits 0.002 WETH
-    const approveData3 = await WETHTokenContract.connect(borrowerSigner).approve("0x87530ED4bd0ee0e79661D65f8Dd37538F693afD5", '10000000000000000000000000');
+    // approve borrower
+    const approveData3 = await WETHTokenContract.connect(borrowerSigner).approve(actualPoolAddr, '10000000000000000000000000');
     approveData3.wait();
     const approveData4 = await WETHTokenContract.connect(borrowerSigner).approve(poolAddr, '10000000000000000000000000');
     approveData4.wait();
@@ -66,7 +110,7 @@ async function main() {
     const mint2 = await WETHTokenContract.connect(borrowerSigner).mint(borrower, 9000000000000000)
     mint2.wait();
 
-    // Borrower deposits WETH
+    // Borrower deposits 0.002 WETH
     const borrowerDeposit = await poolContract.connect(borrowerSigner).supply(rinkWETH, 2000000000000000, borrower, '0');
     borrowerDeposit.wait()
 
@@ -83,7 +127,6 @@ async function main() {
     const result = (toMul * 0.9502)
     const rounded = Math.round(result).toString()
     const usdcToBorrow = convertToCurrencyDecimals(rounded, 6);
-    console.log(usdcToBorrow)
     // Borrower makes the borrow
     const borrowerBorrow = await poolContract.connect(borrowerSigner).borrow(USDCTokenContract.address, usdcToBorrow, 1, "0", borrower);
     borrowerBorrow.wait()
@@ -92,16 +135,54 @@ async function main() {
     const userGlobalData2 = await poolContract.getUserAccountData(borrower);
     console.log(userGlobalData2.healthFactor)
 
-    // Drop HF below 1 by setting usdc Price
-    const toSet = hre.ethers.BigNumber.from(Math.round(usdcPrice.toNumber() * 1.12).toString())
-    // await oracleContract.setAssetPrice(
-    //   USDCTokenContract.address,
-    //   toSet
-    // );
+    // GET BEFORE PRICE ORACLE
+    const beforeOracle = await IPoolAddressProvider.getPriceOracle();
+    console.log(beforeOracle)
 
-    // const borrowerBorrowLiq = await poolContract.connect(borrowerSigner).borrow(USDCTokenContract.address, usdcToBorrow, 1, "0", borrower);
-    // borrowerBorrowLiq.wait()
-    // console.log(borrowerBorrowLiq)
+    // Deploy new aave oracle
+    const AaveOracle = await hre.ethers.getContractFactory("AaveOracle");
+
+    // IPoolAddressesProvider provider,
+    // address[] memory assets,
+    // address[] memory sources,
+    // address fallbackOracle,
+    // address baseCurrency,
+    // uint256 baseCurrencyUnit
+
+    const sourceWETH = await oracleContract.getSourceOfAsset(rinkWETH);
+    console.log(sourceWETH)
+    const sourceUSDC = await oracleContract.getSourceOfAsset(rinkUSDC);
+    console.log(sourceUSDC)
+    const fallback = "0x0000000000000000000000000000000000000000"
+    const baseCurr = "0x0000000000000000000000000000000000000000"
+
+    const aaveOracle = await AaveOracle.deploy(poolAddressProviderAddr, [rinkWETH, rinkUSDC], [sourceWETH, sourceUSDC], fallback, baseCurr, 100000000);
+    aaveOracle.deployed();
+    
+    // // Set fallback oracle to price oracle
+    // await oracleContract.connect(poolAdminSigner).setFallbackOracle(
+    //     priceOracle.address
+    //   );
+
+    // Set pool address to new aave oracle
+    const poolAddrOwner = '0x77c45699A715A64A7a7796d5CEe884cf617D5254';
+    await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [poolAddrOwner],
+      });
+    const poolOwnerSigner = await ethers.getSigner(poolAddrOwner)
+    await IPoolAddressProvider.connect(poolOwnerSigner).setPriceOracle(aaveOracle.address);
+    
+    // GET AFTER PRICE ORACLE
+    const afterOracle = await IPoolAddressProvider.getPriceOracle();
+    console.log(afterOracle)
+
+    // Drop HF below 1 by setting usdc Price
+    const toSet = hre.ethers.BigNumber.from(Math.round(usdcPrice.toNumber() * 5).toString())
+    await aaveOracle.connect(poolAdminSigner).setAssetPrice(
+      USDCTokenContract.address,
+      toSet
+    );
 
     // Get global data of Borrower
     const userGlobalData3 = await poolContract.getUserAccountData(borrower);
@@ -126,12 +207,12 @@ async function main() {
       borrower
     );
     const usdcReserveDataBefore = await helpersContract.getReserveData(USDCTokenContract.address);
-    //console.log("USDC Resever Data")
-    //console.log(usdcReserveDataBefore)
+    console.log("USDC Resever Data")
+    console.log(usdcReserveDataBefore)
 
     const ethReserveDataBefore = await helpersContract.getReserveData(WETHTokenContract.address);
-    //console.log("ETH Reserve Data")
-    //console.log(ethReserveDataBefore)
+    console.log("ETH Reserve Data")
+    console.log(ethReserveDataBefore)
     
     // Get the amount to liquidate
     const amountToLiquidate = hre.ethers.BigNumber.from(
@@ -142,13 +223,13 @@ async function main() {
     
     // Mint contract USDC for initial flashloan test
     await USDCTokenContract
-      .mint(aaveSearcher.address, convertToCurrencyDecimals('10000', 6));
+      .mint(aaveSearcher.address, convertToCurrencyDecimals('1000000', 6));
     
     // const liq = await aaveSearcher.connect(liquidatorSigner).liquidateLoan(rinkWETH, rinkUSDC, borrower, amountToLiquidate)
     // console.log(liq)
     // Executes flashloan
-    // const loan = await aaveSearcher.execFlashLoan(USDCTokenContract.address, amountToLiquidate, WETHTokenContract.address, borrower, 0, 3000);
-    // console.log(loan)
+    const loan = await aaveSearcher.execFlashLoan(USDCTokenContract.address, amountToLiquidate, WETHTokenContract.address, borrower, 0, 3000);
+    console.log(loan)
   }
   
   // We recommend this pattern to be able to use async/await everywhere

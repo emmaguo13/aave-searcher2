@@ -53,6 +53,14 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 module.exports = {
   solidity: "0.8.10",
   networks: {
+    hardhat: {
+      forking: {
+        url: secret.rinkeby,
+        accounts: [secret.key],
+        gas: 2100000,
+        gasPrice: 8000000000
+      }
+    },
     rinkeby: {
       url: secret.rinkeby,
       accounts: [secret.key],

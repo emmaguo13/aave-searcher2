@@ -113,22 +113,22 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         (address collateral, address toLiq, uint256 amtOutMin, uint24 poolFee) = abi.decode(params, (address, address, uint256, uint24));
 
         /* Do liquidation for the loan */
-        // this.liquidateLoan(collateral, asset, toLiq, amount);
+        this.liquidateLoan(collateral, asset, toLiq, amount);
 
         // /* Swap profit from collateral back to the token used for flashloan */
-        // this.swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
+        this.swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
 
-        //  /* Calculate profitability of liq, considering gas, premium of flash loan */
-        // //bool shouldLiq = shouldLiquidate(IERC20(asset).balanceOf(address(this)), amount, premium, prevBal);
+         /* Calculate profitability of liq, considering gas, premium of flash loan */
+        //bool shouldLiq = shouldLiquidate(IERC20(asset).balanceOf(address(this)), amount, premium, prevBal);
 
-        // uint256 bonus = IERC20(asset).balanceOf(address(this)) - amount - premium;
-        // if (bonus <= 0) {
-        //     return false;
-        // }
+        uint256 bonus = IERC20(asset).balanceOf(address(this)) - amount - premium;
+        if (bonus <= 0) {
+            return false;
+        }
 
-        // /* Pay profit to user */
-        // //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
-        // IERC20(collateral).transfer(msg.sender, bonus);
+        /* Pay profit to user */
+        //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
+        IERC20(collateral).transfer(msg.sender, bonus);
 
         /* Approve pool for flash loan, make sure we have enough to pay back amount borrowed + premium, or else we revert */
         uint256 owe = amount + premium;
