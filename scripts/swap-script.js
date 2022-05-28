@@ -1,5 +1,6 @@
 const hre = require("hardhat");
 const { getContractAddress } = require('@ethersproject/address')
+const erc20 = require("../utils/erc20mintable.json")
 //import fetch from "node-fetch";
 
 function sleep(milliseconds) {
@@ -9,6 +10,10 @@ function sleep(milliseconds) {
     currentDate = Date.now();
   } while (currentDate - date < milliseconds);
 }
+
+const convertToCurrencyDecimals = async (amount, decimals) => {
+    return hre.ethers.utils.parseUnits(amount, decimals);
+  };
 
 
 async function main() {
@@ -23,15 +28,25 @@ async function main() {
     const AaveSearcher = await hre.ethers.getContractFactory("AaveSearcher");
     //const swapRouter02 = hre.ethers.utils.getAddress("0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45");
     const swapRouter02 = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45";
-    const aaveSearcher = await AaveSearcher.deploy(swapRouter02);
+    // Get PoolAddressProvider
+    const poolAddressProviderAddr = '0xBA6378f1c1D046e9EB0F538560BA7558546edF3C';
+    const aaveSearcher = await AaveSearcher.deploy(poolAddressProviderAddr, swapRouter02);
     await aaveSearcher.deployed();
-    console.log(aaveSearcher.address)
+
+    const liquidator = "0x3be0dDA9B3657B63c2cd9e836E41903c97518088";
+    await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [liquidator],
+      });
+    const liquidatorSigner = await ethers.getSigner(liquidator)
 
     // console.log("Aave Searcher deployed to:", aaveSearcher.address);
     //const aaveSearcher = await hre.ethers.getContractAt("AaveSearcher", "0x631DF5EaCFAa0bceC11D27c082c0fFb3e65B1366");
     // SWAP WETH TO DAI
-    const rinkWETH = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
-    const rinkUSDC = "0x4DBCdF9B62e891a7cec5A2568C3F4FAF9E8Abe2b";
+    // const rinkWETH = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
+    // const rinkUSDC = "0x4DBCdF9B62e891a7cec5A2568C3F4FAF9E8Abe2b";
+    const rinkWETH = "0xd74047010D77c5901df5b0f9ca518aED56C85e8D";
+    const rinkUSDC = "0xb18d016cDD2d9439A19f15633005A6b2cd6Aa774";
     //console.log(aaveSearcher)
 
     //fetch("https://api.etherscan.io/api?module=contract&action=getabi&address="+ aaveSearcher.address + "&apikey=RNNCQEBWY52XXJ9QAMP7JBT7CG98R5ZXAM").then(data => {
@@ -266,7 +281,7 @@ async function main() {
 
     const wethTokenContract = await hre.ethers.getContractAt(erc20ABI, rinkWETH)
     //console.log(wethTokenContract)
-    const approveData = await wethTokenContract.approve(aaveSearcher.address, 200000000000000)
+    const approveData = await wethTokenContract.connect(liquidatorSigner).approve(aaveSearcher.address, 200000000000000)
     console.log(approveData)
 
     sleep(30000);
@@ -274,7 +289,10 @@ async function main() {
     //const check = await aaveSearcher.hi()
     //console.log(check)
 
-    const res = await aaveSearcher.swapExactInputSingle(100000000000000, 0, rinkWETH, rinkUSDC, 3000);
+    // await wethTokenContract.connect(liquidatorSigner)
+    //   .mint(liquidator, convertToCurrencyDecimals('10', 18));
+
+    const res = await aaveSearcher.connect(liquidatorSigner).swapExactInputSingle(100000000000000, 0, rinkWETH, rinkUSDC, 3000);
     console.log(res)
 }
 

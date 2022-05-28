@@ -3,7 +3,9 @@ const secret = require("../secret");
 const erc20 = require ("../utils/erc20mintable.json");
 const poolABI = require("../utils/pool.json");
 const oracleABI = require("../utils/oracle.json")
+const factoryABI = require("../utils/factory.json")
 const helpersABI = require("../utils/helper.json")
+const nftABI = require("../utils/nft.json")
 const poolAddressProviderABI = require("../utils/poolAddressProv.json")
 const Web3 = require('web3');
 const { ethers, network } = require("hardhat");
@@ -110,8 +112,8 @@ async function main() {
     const mint2 = await WETHTokenContract.connect(borrowerSigner).mint(borrower, 9000000000000000)
     mint2.wait();
 
-    // Borrower deposits 0.002 WETH
-    const borrowerDeposit = await poolContract.connect(borrowerSigner).supply(rinkWETH, 2000000000000000, borrower, '0');
+    // Borrower deposits 0.000002 WETH
+    const borrowerDeposit = await poolContract.connect(borrowerSigner).supply(rinkWETH, 2000000000000, borrower, '0');
     borrowerDeposit.wait()
 
     // Get global data of Borrower
@@ -225,10 +227,32 @@ async function main() {
     await USDCTokenContract
       .mint(aaveSearcher.address, convertToCurrencyDecimals('1000000', 6));
     
+    // Mint liquidator WETH to test swap
+    await WETHTokenContract.connect(liquidatorSigner)
+      .mint(liquidator, convertToCurrencyDecimals('10', 18));
+    
     // const liq = await aaveSearcher.connect(liquidatorSigner).liquidateLoan(rinkWETH, rinkUSDC, borrower, amountToLiquidate)
     // console.log(liq)
+
+    // FIND POOL
+    const factoryAddr = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+    const factoryContract = await hre.ethers.getContractAt(factoryABI, factoryAddr)
+    // await factoryContract.createPool(rinkWETH, rinkUSDC, 3000)
+    const pool = await factoryContract.getPool(rinkWETH, rinkUSDC, 10000)
+    console.log(pool)
+
+    // check if the user has the uniswap nft
+    const nftAddr = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"
+    const nftContract = await hre.ethers.getContractAt(nftABI, nftAddr)
+    const hasNft = await nftContract.balanceOf(borrower)
+    console.log(hasNft)
+    const hasNft2 = await nftContract.balanceOf(liquidator)
+    console.log(hasNft2)
+
+    // await WETHTokenContract.connect(liquidatorSigner).approve(aaveSearcher.address, 200000000000000)
+    // const res = await aaveSearcher.connect(liquidatorSigner).swapExactInputSingle(1, 0, rinkWETH, rinkUSDC, 10000);
     // Executes flashloan
-    const loan = await aaveSearcher.execFlashLoan(USDCTokenContract.address, amountToLiquidate, WETHTokenContract.address, borrower, 0, 3000);
+    const loan = await aaveSearcher.connect(liquidatorSigner).execFlashLoan(USDCTokenContract.address, amountToLiquidate, WETHTokenContract.address, borrower, 0, 10000, liquidator);
     console.log(loan)
   }
   

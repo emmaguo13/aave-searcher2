@@ -140,13 +140,17 @@ async function main() {
       .div(2)
       .toString();
     
-    // Mint contract USDC for initial flashloan test
+    // Mint contract USDC and weth for initial flashloan test
     await USDCTokenContract
       .mint(aaveSearcher.address, convertToCurrencyDecimals('10000', 6));
+    
+    await WETHTokenContract
+      .mint(aaveSearcher.address, convertToCurrencyDecimals('4', 18));
     
     // const liq = await aaveSearcher.connect(liquidatorSigner).liquidateLoan(rinkWETH, rinkUSDC, borrower, amountToLiquidate)
     // console.log(liq)
     // Executes flashloan
+    // await wethTokenContract.approve(aaveSearcher.address, 200000000000000)
     // const loan = await aaveSearcher.execFlashLoan(USDCTokenContract.address, amountToLiquidate, WETHTokenContract.address, borrower, 0, 3000);
     // console.log(loan)
   }

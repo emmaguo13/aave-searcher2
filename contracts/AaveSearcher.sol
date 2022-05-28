@@ -80,14 +80,15 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         address _collateral,
         address _liqedUser,
         uint256 _amtOutMin, // for swap
-        uint24 _poolFee // for swap
+        uint24 _poolFee, // for swap
+        address _liquidator
     ) external {
         /* Call pool contract, req flash loan of certain amount, certain reserve */
         // use simple flash loan for gas efficiency
         address receiverAddress = address(this);
         address asset = _asset;
         // the parameters 
-        bytes memory params = abi.encode(_collateral, _liqedUser, _amtOutMin, _poolFee);
+        bytes memory params = abi.encode(_collateral, _liqedUser, _amtOutMin, _poolFee, _liquidator);
         uint256 amount = _amount;
         // referralCode, last arg, is a uint16
         POOL.flashLoanSimple(receiverAddress, asset, amount, params, 0);
@@ -110,7 +111,7 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         // still dk where we actually pass in premium
         // Answer: premium is actuall the FEE of the FLASHLOANED asset, so we have to pay this back too lamooam
 
-        (address collateral, address toLiq, uint256 amtOutMin, uint24 poolFee) = abi.decode(params, (address, address, uint256, uint24));
+        (address collateral, address toLiq, uint256 amtOutMin, uint24 poolFee, address liquidator) = abi.decode(params, (address, address, uint256, uint24, address));
 
         /* Do liquidation for the loan */
         this.liquidateLoan(collateral, asset, toLiq, amount);
@@ -128,7 +129,9 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
 
         /* Pay profit to user */
         //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
-        IERC20(collateral).transfer(msg.sender, bonus);
+        console.log(bonus);
+        console.log(liquidator);
+        IERC20(asset).transfer(liquidator, bonus);
 
         /* Approve pool for flash loan, make sure we have enough to pay back amount borrowed + premium, or else we revert */
         uint256 owe = amount + premium;
