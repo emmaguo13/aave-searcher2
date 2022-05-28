@@ -7,8 +7,7 @@ const factoryABI = require("../utils/factory.json")
 const helpersABI = require("../utils/helper.json")
 const nftABI = require("../utils/nft.json")
 const poolAddressProviderABI = require("../utils/poolAddressProv.json")
-const Web3 = require('web3');
-const { ethers, network } = require("hardhat");
+const { ethers } = require("hardhat");
 
 const convertToCurrencyDecimals = async (amount, decimals) => {
     return hre.ethers.utils.parseUnits(amount, decimals);
@@ -25,8 +24,6 @@ async function main() {
 
     const aaveSearcher = await AaveSearcher.deploy(IPoolAddressProvider.address, swapRouter02);
     await aaveSearcher.deployed();
-
-    const provider = hre.network.provider;
 
     // Accounts
     const depositor = '0x53607A7DDFb72893579AC2aA18D62d586244a6C2';
@@ -57,30 +54,8 @@ async function main() {
       });
     const poolAdminSigner = await ethers.getSigner(poolAdmin)
 
-    // give 5 Eth to all accounts 
-    
-    // const newBalance = ethers.utils.parseEther("5");
-
-    // // this is necessary because hex quantities with leading zeros are not valid at the JSON-RPC layer
-    // const newBalanceHex = newBalance.toHexString().replace("0x0", "0x");
-    
-    // await network.provider.send("hardhat_setBalance", [
-    //     depositor,
-    //     newBalanceHex,
-    //     ]);
-
-    // await network.provider.send("hardhat_setBalance", [
-    //     borrower,
-    //     newBalanceHex,
-    //     ]);
-    
-    // await network.provider.send("hardhat_setBalance", [
-    //     liquidator,
-    //     newBalanceHex,
-    //     ]);
 
     // Tokens
-    // actually polygon mainnet, but too lazy to change lol
     const rinkWETH = "0xd74047010D77c5901df5b0f9ca518aED56C85e8D";
     const rinkUSDC = "0xb18d016cDD2d9439A19f15633005A6b2cd6Aa774";
     const USDCTokenContract = await hre.ethers.getContractAt(erc20, rinkUSDC);
@@ -144,13 +119,6 @@ async function main() {
     // Deploy new aave oracle
     const AaveOracle = await hre.ethers.getContractFactory("AaveOracle");
 
-    // IPoolAddressesProvider provider,
-    // address[] memory assets,
-    // address[] memory sources,
-    // address fallbackOracle,
-    // address baseCurrency,
-    // uint256 baseCurrencyUnit
-
     const sourceWETH = await oracleContract.getSourceOfAsset(rinkWETH);
     console.log(sourceWETH)
     const sourceUSDC = await oracleContract.getSourceOfAsset(rinkUSDC);
@@ -160,11 +128,6 @@ async function main() {
 
     const aaveOracle = await AaveOracle.deploy(poolAddressProviderAddr, [rinkWETH, rinkUSDC], [sourceWETH, sourceUSDC], fallback, baseCurr, 100000000);
     aaveOracle.deployed();
-    
-    // // Set fallback oracle to price oracle
-    // await oracleContract.connect(poolAdminSigner).setFallbackOracle(
-    //     priceOracle.address
-    //   );
 
     // Set pool address to new aave oracle
     const poolAddrOwner = '0x77c45699A715A64A7a7796d5CEe884cf617D5254';
@@ -230,30 +193,37 @@ async function main() {
     // Mint liquidator WETH to test swap
     await WETHTokenContract.connect(liquidatorSigner)
       .mint(liquidator, convertToCurrencyDecimals('10', 18));
-    
-    // const liq = await aaveSearcher.connect(liquidatorSigner).liquidateLoan(rinkWETH, rinkUSDC, borrower, amountToLiquidate)
-    // console.log(liq)
 
     // FIND POOL
     const factoryAddr = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
     const factoryContract = await hre.ethers.getContractAt(factoryABI, factoryAddr)
-    // await factoryContract.createPool(rinkWETH, rinkUSDC, 3000)
     const pool = await factoryContract.getPool(rinkWETH, rinkUSDC, 10000)
-    console.log(pool)
 
     // check if the user has the uniswap nft
     const nftAddr = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"
     const nftContract = await hre.ethers.getContractAt(nftABI, nftAddr)
     const hasNft = await nftContract.balanceOf(borrower)
     console.log(hasNft)
-    const hasNft2 = await nftContract.balanceOf(liquidator)
-    console.log(hasNft2)
 
-    // await WETHTokenContract.connect(liquidatorSigner).approve(aaveSearcher.address, 200000000000000)
-    // const res = await aaveSearcher.connect(liquidatorSigner).swapExactInputSingle(1, 0, rinkWETH, rinkUSDC, 10000);
     // Executes flashloan
     const loan = await aaveSearcher.connect(liquidatorSigner).execFlashLoan(USDCTokenContract.address, amountToLiquidate, WETHTokenContract.address, borrower, 0, 10000, liquidator);
     console.log(loan)
+
+    let receipt =  await loan.wait();
+    let event = receipt.events?.filter((x) => {return x.event == "Profit"});
+    let profit = event[0].args;
+    console.log(profit[0])
+
+  //   const profit = aaveSearcher.Profit(function(error, result) {
+  //     if (!error)console.log(result);
+  //  });
+  //  console.log(profit)
+
+    // Final swap
+    await USDCTokenContract.connect(liquidatorSigner).approve(aaveSearcher.address, 200000000000000)
+    const res = await aaveSearcher.connect(liquidatorSigner).swapExactInputSingle(profit[0], 0, rinkUSDC, rinkWETH, 10000);
+    console.log(res)
+
   }
   
   // We recommend this pattern to be able to use async/await everywhere

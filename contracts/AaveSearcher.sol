@@ -12,16 +12,11 @@ import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import "hardhat/console.sol";
 
 contract AaveSearcher is FlashLoanSimpleReceiverBase {
-    event Deposit(address indexed _from, bytes32 indexed _id, uint _value);
-//contract AaveSearcher {
-
-    // i can get rid of this stuff
-
-    // IPoolAddressesProvider provider = LendingPoolAddressesProvider(address(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8)); 
-    // IPool pool = LendingPool(provider.getLendingPool());
 
     IV3SwapRouter public immutable swapRouter;
     address public immutable swapRouterAddr;
+    
+    event Profit(uint _profit);
 
     constructor(IPoolAddressesProvider _poolProvider, address _swapRouterAddr) FlashLoanSimpleReceiverBase(_poolProvider) public {
         swapRouterAddr = _swapRouterAddr;
@@ -29,12 +24,6 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         console.log("Deploying an AaveSearcher with Swap Router Addr:", _swapRouterAddr);
     }
 
-    /// @notice swapExactInputSingle swaps a fixed amount of DAI for a maximum possible amount of WETH9
-    /// using the DAI/WETH9 0.3% pool by calling `exactInputSingle` in the swap router.
-    /// @dev The calling address must approve this contract to spend at least `amountIn` worth of its DAI for this function to succeed.
-    /// @param amountIn The exact amount of DAI that will be swapped for WETH9.
-    /// @return amountOut The amount of WETH9 received.
-    // swapExactInputSingle(uint256 amountIn, uint256 amountOutMin, address tokenIn, address tokenOut, uint24 poolFee) external returns (uint256 amountOut)
     function swapExactInputSingle(uint256 amountIn, uint256 amountOutMin, address tokenIn, address tokenOut, uint24 poolFee) external returns (uint256 amountOut) {
         //msg.sender must approve this contract
 
@@ -44,15 +33,12 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         // Approve the router to spend DAI.
         TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
 
-        // Naively set amountOutMinimum to 0. In production, use an oracle or other data source to choose a safer value for amountOutMinimum.
-        // We also set the sqrtPriceLimitx96 to be 0 to ensure we swap our exact input amount.
         IV3SwapRouter.ExactInputSingleParams memory params =
             IV3SwapRouter.ExactInputSingleParams({
                 tokenIn: tokenIn,
                 tokenOut: tokenOut,
                 fee: poolFee,
                 recipient: msg.sender,
-                //deadline: block.timestamp + 200,
                 amountIn: amountIn,
                 amountOutMinimum: amountOutMin,
                 sqrtPriceLimitX96: 0
@@ -79,18 +65,17 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         uint256 _amount,
         address _collateral,
         address _liqedUser,
-        uint256 _amtOutMin, // for swap
-        uint24 _poolFee, // for swap
+        uint256 _amtOutMin,
+        uint24 _poolFee, 
         address _liquidator
     ) external {
         /* Call pool contract, req flash loan of certain amount, certain reserve */
         // use simple flash loan for gas efficiency
         address receiverAddress = address(this);
         address asset = _asset;
-        // the parameters 
+
         bytes memory params = abi.encode(_collateral, _liqedUser, _amtOutMin, _poolFee, _liquidator);
         uint256 amount = _amount;
-        // referralCode, last arg, is a uint16
         POOL.flashLoanSimple(receiverAddress, asset, amount, params, 0);
     }
 
@@ -108,9 +93,7 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         override
         returns (bool)
     {
-        // still dk where we actually pass in premium
-        // Answer: premium is actuall the FEE of the FLASHLOANED asset, so we have to pay this back too lamooam
-
+        
         (address collateral, address toLiq, uint256 amtOutMin, uint24 poolFee, address liquidator) = abi.decode(params, (address, address, uint256, uint24, address));
 
         /* Do liquidation for the loan */
@@ -120,7 +103,6 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         this.swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
 
          /* Calculate profitability of liq, considering gas, premium of flash loan */
-        //bool shouldLiq = shouldLiquidate(IERC20(asset).balanceOf(address(this)), amount, premium, prevBal);
 
         uint256 bonus = IERC20(asset).balanceOf(address(this)) - amount - premium;
         if (bonus <= 0) {
@@ -128,36 +110,13 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         }
 
         /* Pay profit to user */
-        //uint256 prevBal = IERC20(collateral).balanceOf(address(this));
-        console.log(bonus);
-        console.log(liquidator);
         IERC20(asset).transfer(liquidator, bonus);
 
         /* Approve pool for flash loan, make sure we have enough to pay back amount borrowed + premium, or else we revert */
         uint256 owe = amount + premium;
         IERC20(asset).approve(address(POOL), owe);
-
+        emit Profit(bonus);
         return true;
     }
-
-    // function shouldLiquidate(
-    //     uint256 userCollateralBal,
-    //     uint256 amount,
-    //     uint256 premium
-    // ) 
-    //     external
-    //     returns (uint256)
-    // {
-    //     /* Get address price using Aave oracle contract and getAssetPrice() */
-    //     //uint256 collateralAssetPriceEth = 
-
-    //     // a. The maximum collateral bonus received on liquidation is given by the maxAmountOfCollateralToLiquidate * (1 - liquidationBonus) * collateralAssetPriceEth
-    //     // get liq bonus 
-    //     uint256 bonus = userCollateralBal - amount - premium;
-    //     return bonus;
-    //     // b. max cost of txn will be gas price x amt of gas used, used estimateGas via web3 provider
-    //     // profit will be collateral bonus - cost of txn (a - b)
-
-    // }
 
 }

@@ -1,15 +1,11 @@
-# Basic Sample Hardhat Project
+# Aave Liquidator
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, a sample script that deploys that contract, and an example of a task implementation, which simply lists the available accounts.
+This project liquidates unhealthy borrows using flash loans.
+The test case in `./scripts/final-flashloan.js` creates a borrowing position, drops it's Health Factor below one, and allows the liquidator to call the flashloan contract to liquidate the unhealthy loan.
 
-Try running some of the following tasks:
+Here's how to start the project.
 
 ```shell
-npx hardhat accounts
-npx hardhat compile
-npx hardhat clean
-npx hardhat test
-npx hardhat node
-node scripts/sample-script.js
-npx hardhat help
+npm i
+npx hardhat run ./scripts/final-flashloan.js --network hardhat
 ```
