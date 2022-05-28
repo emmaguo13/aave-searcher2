@@ -214,11 +214,6 @@ async function main() {
     let profit = event[0].args;
     console.log(profit[0])
 
-  //   const profit = aaveSearcher.Profit(function(error, result) {
-  //     if (!error)console.log(result);
-  //  });
-  //  console.log(profit)
-
     // Final swap
     await USDCTokenContract.connect(liquidatorSigner).approve(aaveSearcher.address, 200000000000000)
     const res = await aaveSearcher.connect(liquidatorSigner).swapExactInputSingle(profit[0], 0, rinkUSDC, rinkWETH, 10000);
