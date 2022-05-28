@@ -25,8 +25,6 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
     }
 
     function swapExactInputSingle(uint256 amountIn, uint256 amountOutMin, address tokenIn, address tokenOut, uint24 poolFee) external returns (uint256 amountOut) {
-        //msg.sender must approve this contract
-
         //Transfer the specified amount of DAI to this contract.
         TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
 
@@ -72,11 +70,9 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         /* Call pool contract, req flash loan of certain amount, certain reserve */
         // use simple flash loan for gas efficiency
         address receiverAddress = address(this);
-        address asset = _asset;
 
         bytes memory params = abi.encode(_collateral, _liqedUser, _amtOutMin, _poolFee, _liquidator);
-        uint256 amount = _amount;
-        POOL.flashLoanSimple(receiverAddress, asset, amount, params, 0);
+        POOL.flashLoanSimple(receiverAddress, _asset, _amount, params, 0);
     }
 
     /* 
@@ -99,13 +95,14 @@ contract AaveSearcher is FlashLoanSimpleReceiverBase {
         /* Do liquidation for the loan */
         this.liquidateLoan(collateral, asset, toLiq, amount);
 
-        // /* Swap profit from collateral back to the token used for flashloan */
+        /* Swap profit from collateral back to the token used for flashloan */
         this.swapExactInputSingle(IERC20(collateral).balanceOf(address(this)), amtOutMin, collateral, asset, poolFee);
 
          /* Calculate profitability of liq, considering gas, premium of flash loan */
-
         uint256 bonus = IERC20(asset).balanceOf(address(this)) - amount - premium;
-        if (bonus <= 0) {
+
+        // 
+        if (bonus == 0) {
             return false;
         }
 

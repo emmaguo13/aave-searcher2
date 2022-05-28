@@ -60,7 +60,8 @@ contract AaveOracle is IAaveOracle {
     BASE_CURRENCY = baseCurrency;
     BASE_CURRENCY_UNIT = baseCurrencyUnit;
     // initialize the fake prices to be 0
-    for (uint256 i = 0; i < assets.length; i++) {
+    uint256 length = assets.length;
+    for (uint256 i = 0; i < length; i++) {
       setPrices[assets[i]] = 0;
     }
     emit BaseCurrencySet(baseCurrency, baseCurrencyUnit);
@@ -91,7 +92,8 @@ contract AaveOracle is IAaveOracle {
    */
   function _setAssetsSources(address[] memory assets, address[] memory sources) internal {
     require(assets.length == sources.length, Errors.INCONSISTENT_PARAMS_LENGTH);
-    for (uint256 i = 0; i < assets.length; i++) {
+    uint256 length = assets.length;
+    for (uint256 i = 0; i < length; i++) {
       assetsSources[assets[i]] = AggregatorInterface(sources[i]);
       emit AssetSourceUpdated(assets[i], sources[i]);
     }
